@@ -4,11 +4,10 @@ contains my observations when solving that day's puzzle.
 
 Language 	Days
 Clojure
+Crystal
 Elixir
-Kotlin 
 Rust
 Scala
-Zig
 
 
 ## Attribution
