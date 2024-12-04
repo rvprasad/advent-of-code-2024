@@ -2,12 +2,13 @@ This repo contains the code to solve the puzzles from [2024 Advent of
 Code](https://adventofcode.com/). The README.md file in the folder for each day
 contains my observations when solving that day's puzzle.
 
-Language 	Days
-Clojure
-Crystal
-Elixir
-Rust
-Scala
+|Language| Days
+|--------|-------
+|Clojure | 1 
+|Crystal | 2
+|Elixir  | 3
+|Rust    |
+|Scala   |
 
 
 ## Attribution
