@@ -1,5 +1,7 @@
 import io.Source
 import scala.util.Using
+import scala.collection.mutable.ListBuffer
+import scala.collection.Seq
 
 case class Input(
     page2pages: Map[String, Set[String]],
@@ -30,24 +32,47 @@ def createInput(filename: String): Input =
   }
   Input(p, updates)
 
-def isGood(page2pages: Map[String, Set[String]], update: List[String]) =
+def getPagePositions(
+    update: Seq[String],
+    page2pages: Map[String, Set[String]]
+) =
   page2pages.keySet
-    .map(i => (i, update.indexOf(i)))
+    .map(p => (p, update.indexOf(p)))
     .filter(_._2 != -1)
-    .forall((page, index) =>
-      page2pages(page)
-        .map(update.lastIndexOf(_))
-        .filter(_ != -1)
-        .forall(_ > index)
+    .map(pageAndIndex =>
+      page2pages(pageAndIndex._1)
+        .map(i => (i, update.lastIndexOf(i)))
+        .filter(_._2 != -1)
+        .map(i => ((pageAndIndex), i))
     )
+    .flatten()
 
-def solvePart1(input: Input): Int =
-  input.updates
-    .filter(isGood(input.page2pages, _))
-    .map(u => { u(u.length / 2).toInt })
-    .sum()
+def isUpdateGood(update: Seq[String], page2pages: Map[String, Set[String]]) =
+  getPagePositions(update, page2pages).forall(i => i._1._2 < i._2._2)
+
+def fixUpdate(update: Seq[String], page2pages: Map[String, Set[String]]) =
+  def fix(update: ListBuffer[String]): ListBuffer[String] =
+    getPagePositions(update, page2pages).find(pageAndIndexPair =>
+      pageAndIndexPair._1._2 > pageAndIndexPair._2._2
+    ) match {
+      case None => update
+      case Some((predIndex, succIndex)) =>
+        update.insert(succIndex._2, update.remove(predIndex._2))
+        fix(update)
+    }
+
+  fix(ListBuffer.from(update)).toList
+
+def solve(input: Input): (Int, Int) =
+  def sumUpdates(updates: List[List[String]]) =
+    updates.map(u => { u(u.length / 2).toInt }).sum()
+
+  val (goodUpdates, badUpdates) = input.updates
+    .partition(isUpdateGood(_, input.page2pages))
+  val fixedUpdates = badUpdates.map(fixUpdate(_, input.page2pages))
+  (sumUpdates(goodUpdates), sumUpdates(fixedUpdates))
 
 @main def main(filename: String) = {
   val input = createInput(filename)
-  println(solvePart1(input))
+  println(solve(input))
 }
