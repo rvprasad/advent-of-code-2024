@@ -4,11 +4,11 @@ contains my observations when solving that day's puzzle.
 
 |Language| Days
 |--------|-------
-|Clojure | 1 
-|Crystal | 2
+|Clojure | 1, 6*
+|Crystal | 2, 7
 |Elixir  | 3
-|Rust    |
-|Scala   |
+|Rust    | 4
+|Scala   | 5
 
 
 ## Attribution
