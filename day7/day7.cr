@@ -5,26 +5,14 @@ def getEquations(filename)
   }
 end
 
-def isValidPart1?(test_value, values, curr_value)
+def isValidPart?(test_value, values, curr_value, ops)
   if values.empty?
     curr_value == test_value
   elsif curr_value <= test_value
     head, *tail = values
-    isValidPart1?(test_value, tail, curr_value * head) ||
-      isValidPart1?(test_value, tail, curr_value + head)
-  else
-    false
-  end
-end
-
-def isValidPart2?(test_value, values, curr_value)
-  if values.empty?
-    curr_value == test_value
-  elsif curr_value <= test_value
-    head, *tail = values
-    isValidPart2?(test_value, tail, curr_value * head) ||
-      isValidPart2?(test_value, tail, curr_value + head) ||
-      isValidPart2?(test_value, tail, "#{curr_value}#{head}".to_u64)
+    ops.find(if_none = false) { |op|
+      isValidPart?(test_value, tail, op.call(curr_value, head), ops)
+    }
   else
     false
   end
@@ -34,10 +22,16 @@ def solve(equations)
   # Crystal bug results in Arithmetic overflow error
   # part1 = equations.map { |k, v| isValidPart1?(k, v[1..], v[0]) ? k : 0 }.sum
 
-  part1 = equations.select { |k, v| isValidPart1?(k, v[1..], v[0]) }
+  addOp = ->(v1 : UInt64, v2 : UInt64) { v1 + v2 }
+  mulOp = ->(v1 : UInt64, v2 : UInt64) { v1 * v2 }
+  spliceOp = ->(v1 : UInt64, v2 : UInt64) { "#{v1}#{v2}".to_u64 }
+
+  ops1 = [addOp, mulOp]
+  part1 = equations.select { |k, v| isValidPart?(k, v[1..], v[0], ops1) }
     .map { |k, _| k }.sum
 
-  part2 = equations.select { |k, v| isValidPart2?(k, v[1..], v[0]) }
+  ops2 = [addOp, mulOp, spliceOp]
+  part2 = equations.select { |k, v| isValidPart?(k, v[1..], v[0], ops2) }
     .map { |k, _| k }.sum
   {part1, part2}
 end
