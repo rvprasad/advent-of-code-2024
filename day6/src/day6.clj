@@ -15,51 +15,59 @@
      (apply concat)
      (into {}))))
 
-(defn is-blocked? [c] (= c "#"))
+(defn get-next-pos [[[x y] dir] area-map]
+  (let [next-loc (cond
+                   (= dir :up) [x (- y 1)]
+                   (= dir :down) [x (+ y 1)]
+                   (= dir :left) [(- x 1) y]
+                   (= dir :right) [(+ x 1) y])
+        next-content (area-map next-loc nil)]
+    (if (not= next-content "#") [next-loc dir]
+        [[x y] (case dir
+                 :up :right
+                 :down :left
+                 :left :up
+                 :right :down)])))
 
-(defn change-dir [path]
-  (let [[pos curr-dir] (first path)
-        new-dir (cond
-                  (= curr-dir "up") "right"
-                  (= curr-dir "right") "down"
-                  (= curr-dir "down") "left"
-                  :else "up")]
-    (cons [pos new-dir] (rest path))))
+(defn is-looping? [seen pos] (contains? seen pos))
 
-(defn extend-path [path]
-  (let [[[x y] dir] (first path)
-        next-pos (cond
-                   (= dir "up") [[x (- y 1)] dir]
-                   (= dir "down") [[x (+ y 1)] dir]
-                   (= dir "left") [[(- x 1) y] dir]
-                   (= dir "right") [[(+ x 1) y] dir])]
-    (cons next-pos path)))
+(defn is-blocked? [area-map loc] (not (contains? area-map loc)))
+
+(defn traverse-path [init-path area-map]
+  (defn helper [path seen]
+    (let [curr-pos (first path)
+          curr-loc (first curr-pos)
+          curr-content (area-map curr-loc)
+          next-pos (get-next-pos curr-pos area-map)
+          next-loc (first next-pos)]
+      (cond
+        (is-looping? seen next-pos) nil
+        (is-blocked? area-map next-loc) path
+        :else (recur (cons next-pos path)
+                     (conj seen next-pos)))))
+  (helper init-path (set nil)))
+
+(defn is-map-loopy-with-obstacle [area-map obs-loc init-path]
+  (let [new-map (assoc area-map obs-loc "#")]
+    (traverse-path init-path new-map)))
 
 (defn solve-puzzle [area-map]
   (def max-cols (apply max (map #(second (first %)) area-map)))
-
   (def max-rows (apply max (map #(first (first %)) area-map)))
 
-  (defn is-guard-out? [[x y]]
-    (or (> x max-cols) (< x 0) (> y max-rows) (< y 0)))
-
-  (defn traverse-path [path]
-    (let [curr-pos (first (first path))
-          curr-content (area-map curr-pos)]
-      (cond
-        (is-guard-out? curr-pos) path
-        (is-blocked? curr-content) (recur (change-dir (rest path)))
-        :else (recur (extend-path path)))))
-
-  (defn find-obstructable-points [path]
-    (throw (UnsupportedException "TBD")))
-
-  (let [start-pos (first (first (filter #(= (second %) "^") area-map)))
-        path (traverse-path (list [start-pos "up"]))
-        path-length (- (count (set (map first path))) 1)
-        obstructable-points (find-obstructable-points (reverse path))
-        num-obs-points (count (filter #(not= start-pos %) obstructable-points))]
-    [path-length num-obs-points]))
+  (let [start-loc (first (first (filter #(= (second %) "^") area-map)))
+        init-path (list [start-loc :up])
+        path (traverse-path init-path area-map)
+        path-length (count (distinct (map first path)))
+        loop-count (->>
+                    path
+                    (map #(first %))
+                    (distinct)
+                    (filter #(and (not= start-loc %)))
+                    (map #(is-map-loopy-with-obstacle area-map %1 init-path))
+                    (filter nil?)
+                    (count))]
+    [path-length loop-count]))
 
 (defn -main [filename]
   (let [area-map (read-area-map filename)]
