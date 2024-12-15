@@ -14,12 +14,10 @@ fn main() {
     }
 }
 
-fn solve_part2(robots: &Vec<Robot>, num_rows: i32, num_cols: i32) -> usize {
+fn solve_part2(robots: &Vec<Robot>, num_rows: i32, num_cols: i32) -> i32 {
     (1..(num_cols * num_rows))
         .into_iter()
         .min_by_key(|seconds| solve_part1(robots, num_rows, num_cols, *seconds))
-        .unwrap()
-        .try_into()
         .unwrap()
 }
 
