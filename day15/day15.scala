@@ -54,46 +54,31 @@ def readConfigAndMovements(filename: String) = {
   (config, robot, movements)
 }
 
-def isMovePossible(
-    boxes: List[Box],
-    dir: Direction,
-    config: Config
-): Boolean =
-  boxes
-    .flatMap(b =>
-      b.locations.map(_.nextLocation(dir)).filter(!b.locations.contains(_))
-    )
-    .map(config.get)
-    .distinct
-    .forall(
-      _ match {
-        case None                => true
-        case Some(f @ Box(locs)) => isMovePossible(List(f), dir, config)
-        case _                   => false
-      }
-    )
-
 def updateConfig(
     config: Config,
     boxes: List[Box],
     dir: Direction
-): Config =
-  if boxes.isEmpty then return config
+): Option[Config] =
+  if boxes.isEmpty then return Some(config)
 
   val nextBoxes = boxes
     .flatMap(b =>
       b.locations.map(l => l.nextLocation(dir)).filter(!b.locations.contains(_))
     )
-    .map(l => config.get(l))
+    .map(config.get)
     .flatMap(identity)
-    .map(_.asInstanceOf[Box])
-    .distinct
-  val newConfig = updateConfig(config, nextBoxes, dir)
-  val removedBoxLocations = (boxes.flatMap(_.locations).distinct)
-  val addBoxLocations = boxes
-    .map(b => Box(b.locations.map(l => l.nextLocation(dir))))
-    .flatMap(b => b.locations.map(l => l -> b))
-  newConfig -- removedBoxLocations ++ addBoxLocations
+
+  if !nextBoxes.forall(_.isInstanceOf[Box]) then return None
+
+  updateConfig(config, nextBoxes.map(_.asInstanceOf[Box]).distinct, dir) match {
+    case Some(newConfig) =>
+      val removedBoxLocations = (boxes.flatMap(_.locations).distinct)
+      val addBoxLocations = boxes
+        .map(b => Box(b.locations.map(l => l.nextLocation(dir))))
+        .flatMap(b => b.locations.map(l => l -> b))
+      Some(newConfig -- removedBoxLocations ++ addBoxLocations)
+    case None => None
+  }
 
 def solve(config: Config, robot: Location, movements: Array[Direction]) =
   def helper(config: Config, robot: Location) =
@@ -103,9 +88,10 @@ def solve(config: Config, robot: Location, movements: Array[Direction]) =
         val nextLocation = location.nextLocation(moveDirection)
         config.get(nextLocation) match {
           case None => (config, nextLocation)
-          case Some(b @ Box(_))
-              if isMovePossible(List(b), moveDirection, config) =>
-            (updateConfig(config, List(b), moveDirection), nextLocation)
+          case Some(b @ Box(_)) =>
+            updateConfig(config, List(b), moveDirection)
+              .map((_, nextLocation))
+              .getOrElse(acc)
           case _ => acc
         }
       }
@@ -122,20 +108,6 @@ def solve(config: Config, robot: Location, movements: Array[Direction]) =
   val finalState1 = helper(config, robot)
   val finalState2 = helper.apply.tupled(transformForPart2(config, robot))
   (calculateResult(finalState1(0)), calculateResult(finalState2(0)))
-
-def printConfig(config: Config, robot: Location) =
-  for i <- 0 until (config.keySet.map(_.y).max + 1) do
-    for j <- 0 until (config.keySet.map(_.x).max + 1) do
-      val l = Location(j, i)
-      if l == robot then print("@")
-      else
-        config.get(l) match {
-          case Some(Box(_))     => print("O")
-          case Some(Obstacle()) => print("#")
-          case None             => print(".")
-        }
-    println()
-  println()
 
 def transformForPart2(config: Config, robot: Location) =
   def expand(loc: Location) =
