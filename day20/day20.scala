@@ -17,43 +17,52 @@ def readRaceTrack(filename: String) =
   val numRows = lines.size
   val numCols = lines(0).size
 
-  lines.zipWithIndex.foldLeft(Map[Location, Node]()) { (raceTrack, e1) =>
-    val (line, y) = e1
-    line.zipWithIndex.foldLeft(raceTrack) { (raceTrack, e2) =>
-      val (v, x) = e2
-      val location = Location(x, y)
-      val neighbors = getValid(x, 0, numCols).map(Location(_, y)) ++
-        getValid(y, 0, numRows).map(Location(x, _))
-      raceTrack + { location -> Node(v, neighbors) }
-    }
+  lines.zip(LazyList.from(1)).foldLeft(Map[Location, Node]()) {
+    (raceTrack, e1) =>
+      val (line, y) = e1
+      line.zip(LazyList.from(1)).foldLeft(raceTrack) { (raceTrack, e2) =>
+        val (v, x) = e2
+        val neighbors =
+          getValid(x, 0, numCols).map(Location(_, y)) ++
+            getValid(y, 0, numRows).map(Location(x, _))
+        raceTrack + { Location(x, y) -> Node(v, neighbors) }
+      }
   }
 
-def getFullPath(path: List[Location], raceTrack: RaceTrack): List[Location] =
-  val tmp = raceTrack(path.head).neighbors.filter(l =>
-    raceTrack(l).value != '#' && (path.length < 2 || path(1) != l)
-  )
-  if tmp.isEmpty then path.reverse
-  else getFullPath(tmp.head :: path, raceTrack)
+def solve(
+    raceTrack: RaceTrack,
+    maxCheatLength: Int,
+    minPicoSecondsToSave: Int
+) =
+  def getFullPath(path: List[Location]): List[Location] =
+    val tmp = raceTrack(path.head).neighbors.filter(l =>
+      raceTrack(l).value != '#' && (path.length < 2 || path(1) != l)
+    )
+    if tmp.isEmpty then path.reverse
+    else getFullPath(tmp.head :: path)
 
-def solve(raceTrack: RaceTrack) =
+  def identifyCheats(src: Location, path: List[Location]) =
+    val srcIndex = path.indexOf(src)
+    val trackLocs = path.toSet
+    (for
+      x <- -maxCheatLength to maxCheatLength
+      y <- 0 to maxCheatLength
+      if (y != 0 || x > 0) // avoid duplicates due to overlapping x range
+    yield (Location(x + src.x, y + src.y), abs(x) + y))
+      .filter((trg, cl) => trackLocs.contains(trg) && cl <= maxCheatLength)
+      .map((trg, cl) => abs(srcIndex - path.indexOf(trg)) - cl)
+      .filter(_ >= minPicoSecondsToSave)
+
   val fullPath = getFullPath(
-    List[Location](raceTrack.filter((l, n) => n.value == 'S').head._1),
-    raceTrack
+    List[Location](raceTrack.filter((l, n) => n.value == 'S').head._1)
   )
-  raceTrack
-    .filter((l, n) => n.value == '#')
-    .foldLeft(List[Int]()) { (saves, pair) =>
-      val (loc, node) = pair
-      val nonWalls = node.neighbors.filter(l => raceTrack(l).value != '#')
-      saves ++ nonWalls
-        .combinations(2)
-        .map(e => abs((fullPath.indexOf(e(0)) - fullPath.indexOf(e(1)))) - 2)
-        .filter(_ > 0)
-        .toList
-    }
-    .filter(_ >= 100)
-    .length
 
-@main def main(filename: String) =
+  fullPath.map(identifyCheats(_, fullPath)).flatten.length
+
+@main def main(
+    filename: String,
+    maxCheatLength: Int,
+    minPicoSecondsToSave: Int
+) =
   val raceTrack = readRaceTrack(filename)
-  println(solve(raceTrack))
+  println(solve(raceTrack, maxCheatLength, minPicoSecondsToSave))
