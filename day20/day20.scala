@@ -41,23 +41,26 @@ def solve(
     if tmp.isEmpty then path.reverse
     else getFullPath(tmp.head :: path)
 
-  def identifyCheats(src: Location, path: List[Location]) =
-    val srcIndex = path.indexOf(src)
-    val trackLocs = path.toSet
-    (for
-      x <- -maxCheatLength to maxCheatLength
-      y <- 0 to maxCheatLength
-      if (y != 0 || x > 0) // avoid duplicates due to overlapping x range
-    yield (Location(x + src.x, y + src.y), abs(x) + y))
-      .filter((trg, cl) => trackLocs.contains(trg) && cl <= maxCheatLength)
-      .map((trg, cl) => abs(srcIndex - path.indexOf(trg)) - cl)
-      .filter(_ >= minPicoSecondsToSave)
-
   val fullPath = getFullPath(
     List[Location](raceTrack.filter((l, n) => n.value == 'S').head._1)
   )
+  val nullNode = Node('#', List.empty)
 
-  fullPath.map(identifyCheats(_, fullPath)).flatten.length
+  fullPath
+    .map(src =>
+      val srcIndex = fullPath.indexOf(src)
+      (for
+        x <- -maxCheatLength to maxCheatLength
+        y <- 0 to maxCheatLength
+        if (y != 0 || x > 0) && // avoid duplicates due to overlapping x range
+          abs(x) + y <= maxCheatLength
+      yield (Location(x + src.x, y + src.y), abs(x) + y))
+        .filter((trg, cl) => raceTrack.getOrElse(trg, nullNode).value != '#')
+        .map((trg, cl) => abs(srcIndex - fullPath.indexOf(trg)) - cl)
+        .filter(_ >= minPicoSecondsToSave)
+    )
+    .flatten
+    .length
 
 @main def main(
     filename: String,
