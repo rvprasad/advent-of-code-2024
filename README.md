@@ -8,7 +8,7 @@ contains my observations when solving that day's puzzle.
 |Crystal | 2, 7,  12, 17, 22
 |Elixir  | 3, 8,  13, 18, 23
 |Rust    | 4, 9,  14, 19, 24
-|Scala   | 5, 10, 15, 20,
+|Scala   | 5, 10, 15, 20, 25
 
 
 ## Attribution
