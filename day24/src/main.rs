@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::env;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -9,11 +9,92 @@ type Circuit = HashMap<(String, usize), (String, String, String)>;
 fn main() {
     let args = env::args().collect::<Vec<String>>();
     if let Ok((state, circuit)) = get_init_state_and_circuit(&args[1]) {
-        println!("{:?}", solve(state, circuit))
+        println!("{:?}", solve1(state, &circuit));
+        println!("{:?}", solve2(circuit));
     }
 }
 
-fn solve(mut state: State, circuit: Circuit) -> i64 {
+fn solve2(circuit: Circuit) -> String {
+    let mut swapped_wires = circuit
+        .iter()
+        .filter_map(
+            |((gate_type, _), (in1, in2, out))| match gate_type.as_str() {
+                "AND" => is_invalid_and(in1, in2, out, &circuit),
+                "OR" => is_invalid_or(out, &circuit),
+                "XOR" => is_invalid_xor(in1, in2, out, &circuit),
+                _ => panic!("How?"),
+            },
+        )
+        .collect::<Vec<String>>();
+    swapped_wires.sort();
+    swapped_wires.join(",")
+}
+
+fn is_invalid_xor(in1: &String, in2: &String, out: &String, circuit: &Circuit) -> Option<String> {
+    if in1.starts_with("x") && in2.starts_with("y") || in1.starts_with("y") && in2.starts_with("x")
+    {
+        let bit_position = &in1[1..];
+        let z = format!("z{}", bit_position);
+        let flag1 = bit_position == "00" && &z == out;
+        let flag2 =
+            find_ins(&z, String::from("XOR"), &circuit).filter(|e| &e.0 == out || &e.1 == out);
+        let flag3 = find_gate_with_in(String::from("AND"), out, &circuit);
+        if flag1 || flag2.is_some() || flag3.is_some() {
+            None
+        } else {
+            Some(out.to_string())
+        }
+    } else if !out.starts_with("z") {
+        Some(out.to_string())
+    } else {
+        None
+    }
+}
+
+fn is_invalid_or(out: &String, circuit: &Circuit) -> Option<String> {
+    let max_z = circuit
+        .values()
+        .filter(|e| e.2.starts_with("z"))
+        .max_by_key(|e| &e.2)
+        .unwrap();
+    let flag1 = *out == max_z.2;
+    let flag2 = find_gate_with_in(String::from("XOR"), out, circuit).is_some()
+        && find_gate_with_in(String::from("AND"), out, circuit).is_some();
+    if flag1 || flag2 {
+        None
+    } else {
+        Some(out.to_string())
+    }
+}
+fn is_invalid_and(in1: &String, in2: &String, out: &String, circuit: &Circuit) -> Option<String> {
+    let flag1 = in1 == "x00" && in2 == "y00" || in1 == "y00" && in2 == "x00";
+    let flag2 = find_gate_with_in(String::from("OR"), out, circuit).is_some();
+    if flag1 || flag2 {
+        None
+    } else {
+        Some(out.to_string())
+    }
+}
+
+fn find_gate_with_in(
+    gate_type: String,
+    input: &String,
+    circuit: &Circuit,
+) -> Option<(String, String, String)> {
+    circuit
+        .iter()
+        .find(|(k, v)| k.0 == *gate_type && (v.0 == *input || v.1 == *input))
+        .map(|(_, v)| v.clone())
+}
+
+fn find_ins(z: &String, gate_type: String, circuit: &Circuit) -> Option<(String, String)> {
+    circuit
+        .iter()
+        .find(|(k, v)| k.0 == *gate_type && (v.2 == *z))
+        .map(|e| (e.1 .0.clone(), e.1 .1.clone()))
+}
+
+fn solve1(mut state: State, circuit: &Circuit) -> i64 {
     let mut gates: VecDeque<&(String, usize)> =
         VecDeque::<&(String, usize)>::from(circuit.keys().collect::<Vec<&(String, usize)>>());
     while !gates.is_empty() {
